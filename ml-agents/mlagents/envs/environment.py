@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import os
 import subprocess
+import json                
 
 from .brain import BrainInfo, BrainParameters, AllBrainInfo
 from .exception import UnityEnvironmentException, UnityActionException, UnityTimeOutException
@@ -27,7 +28,7 @@ logger = logging.getLogger("mlagents.envs")
 class UnityEnvironment(object):
     def __init__(self, file_name=None, worker_id=0,
                  base_port=5005, seed=0,
-                 docker_training=False, no_graphics=False):
+                 docker_training=False, no_graphics=False, env_config={}):
         """
         Starts a new unity environment and establishes a connection with the environment.
         Notice: Currently communication between Unity and Python takes place over an open socket without authentication.
@@ -47,6 +48,7 @@ class UnityEnvironment(object):
         self._loaded = False    # If true, this means the environment was successfully loaded
         self.proc1 = None       # The process that is started. If None, no process was started
         self.communicator = self.get_communicator(worker_id, base_port)
+        self.env_config = env_config
 
         # If the environment name is None, a new environment will not be launched
         # and the communicator will directly try to connect to an existing unity environment.
@@ -183,13 +185,19 @@ class UnityEnvironment(object):
             logger.debug("This is the launch string {}".format(launch_string))
             # Launch Unity environment
             if not docker_training:
+
+                env_config_arg = [
+                    '--env-config',
+                    json.dumps(self.env_config) if type(self.env_config) is dict else str(self.env_config)
+                    ]
+
                 if no_graphics:
                     self.proc1 = subprocess.Popen(
                         [launch_string,'-nographics', '-batchmode',
-                         '--port', str(self.port)])
+                         '--port', str(self.port)] + env_config_arg)
                 else:
                     self.proc1 = subprocess.Popen(
-                        [launch_string, '--port', str(self.port)])
+                        [launch_string, '--port', str(self.port)] + env_config_arg)
             else:
                 """
                 Comments for future maintenance:
